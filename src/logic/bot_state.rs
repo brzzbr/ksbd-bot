@@ -84,7 +84,19 @@ pub struct BotStateManagerImpl {
 
 impl Clone for BotStateManagerImpl {
     fn clone(&self) -> Self {
-        todo!()
+        // screw it
+        let pages_state_manager = PagesStateManagerImpl {};
+        let subs_state_manager = SubsStateManagerImpl {};
+
+        // screw it too
+        let p_manager = Box::pin(pages_state_manager);
+        let s_manager = Box::pin(subs_state_manager);
+
+        BotStateManagerImpl {
+            inner_state: self.inner_state.clone(),
+            pages_state_manager: p_manager,
+            subs_state_manager: s_manager,
+        }
     }
 }
 
