@@ -5,16 +5,16 @@ use std::time::Instant;
 
 use futures::{stream, Stream, StreamExt};
 use lazy_static::lazy_static;
-use teloxide::Bot;
 use tokio::fs;
 use tokio::sync::RwLock;
 
 use crate::cfg::DATA_PATH;
 use crate::domain::bot_state::BotState;
 use crate::domain::ksbd_page::KsbdPage;
+use crate::domain::page_to_send::PageToSend;
 use crate::domain::pages_state::PagesState;
-use crate::logic::bot_flow::send_page;
 use crate::logic::ksbd_page::{download_imgs, request_page};
+use crate::logic::page_sender::PageSender;
 
 lazy_static! {
     static ref STATE_PATH: String = format!("{}/pages_state.txt", DATA_PATH.as_str());
@@ -69,7 +69,10 @@ pub fn restore_pages_from(idx: usize, url: String) -> impl Stream<Item = KsbdPag
     })
 }
 
-pub async fn check_new_page_and_send(state: &Arc<RwLock<BotState>>, bot: &Bot) {
+pub async fn check_new_page_and_send<Sender: PageSender + Clone>(
+    state: &Arc<RwLock<BotState>>,
+    sender: &Sender,
+) {
     let maybe_last;
     let subs_chat_ids;
     {
@@ -91,7 +94,10 @@ pub async fn check_new_page_and_send(state: &Arc<RwLock<BotState>>, bot: &Bot) {
 
                         for chat_id in subs_chat_ids {
                             for p in new_pages.clone() {
-                                let _ = send_page(true, bot.clone(), chat_id, &p).await;
+                                let _ = sender
+                                    .clone()
+                                    .send_page(PageToSend::fresh_page(&p), chat_id)
+                                    .await;
                             }
                         }
 

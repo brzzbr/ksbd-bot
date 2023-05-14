@@ -12,6 +12,7 @@ image = "ghcr.io/cross-rs/armv7-unknown-linux-musleabihf:0.2.4"
 xargo = false
 
 [dependencies]
+async-trait = "0.1.68"
 dotenv = "0.15.0"
 log = "0.4.0"
 pretty_env_logger = "0.4"

@@ -1,5 +1,4 @@
 use std::fmt::{Display, Formatter};
-use crate::cfg::DATA_PATH;
 
 #[derive(Debug, Clone)]
 pub struct KsbdPage {
@@ -9,16 +8,6 @@ pub struct KsbdPage {
     pub imgs: Vec<String>,
     pub text: String,
     pub next: Option<String>,
-}
-
-impl KsbdPage {
-    pub fn img_files(&self) -> Vec<String> {
-        self.imgs
-            .iter()
-            .enumerate()
-            .map(|(img_idx, _)| format!("{}/{}-{}.png", DATA_PATH.as_str(), self.idx, img_idx))
-            .collect::<Vec<_>>()
-    }
 }
 
 impl Display for KsbdPage {

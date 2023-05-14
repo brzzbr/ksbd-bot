@@ -1,72 +1,17 @@
 use std::sync::Arc;
 
 use teloxide::prelude::*;
-use teloxide::types::{
-    BotCommand, InlineKeyboardButton, InlineKeyboardMarkup, InputFile, MenuButton,
-};
+use teloxide::types::{BotCommand, MenuButton};
 use teloxide::utils::command::BotCommands;
 use teloxide::Bot;
 use tokio::sync::RwLock;
 
 use crate::domain::bot_cmd::Command;
 use crate::domain::bot_state::BotState;
-use crate::domain::ksbd_page::KsbdPage;
+use crate::domain::page_to_send::PageToSend;
 use crate::logic::bot_state::save_bot_state;
-
-type HandlerResult = Result<(), Box<dyn std::error::Error + Send + Sync>>;
-
-pub async fn send_page(is_new: bool, b: Bot, id: ChatId, p: &KsbdPage) -> HandlerResult {
-    let p = p.clone();
-
-    if is_new {
-        b.send_message(id, "🎉🎉🎉 GREAT NEWS!! NEW PAGE IS ON THE WAY 🎉🎉🎉")
-            .await?;
-    }
-
-    let mut but_row = Vec::<InlineKeyboardButton>::new();
-    if p.idx > 0 {
-        but_row.push(InlineKeyboardButton::callback(
-            "PREV",
-            (p.idx - 1).to_string(),
-        ));
-    }
-    if p.next.is_some() {
-        but_row.push(InlineKeyboardButton::callback(
-            "NEXT",
-            (p.idx + 1).to_string(),
-        ));
-    }
-
-    let buttons = vec![but_row];
-    let markup = InlineKeyboardMarkup::new(buttons);
-
-    let txt_to_send = p.title.replace("%09", "\t").replace("%0D%0A", "\n");
-    if !txt_to_send.trim().is_empty() {
-        b.send_message(id, txt_to_send).await?;
-    }
-
-    let txt_to_send = p.text.replace("%09", "\t").replace("%0D%0A", "\n");
-    if !txt_to_send.trim().is_empty() {
-        for img_file in p.img_files() {
-            b.send_document(id, InputFile::file(img_file)).await?;
-        }
-        b.send_message(id, txt_to_send).reply_markup(markup).await?;
-    } else {
-        // it has to have at least one img, hence unwrap
-        let img_files = p.img_files();
-        let (last, first) = img_files.as_slice().split_last().unwrap();
-
-        for img_file in first {
-            b.send_document(id, InputFile::file(img_file)).await?;
-        }
-
-        b.send_document(id, InputFile::file(last))
-            .reply_markup(markup)
-            .await?;
-    }
-
-    Ok(())
-}
+use crate::logic::page_sender::*;
+use crate::logic::HandlerResult;
 
 pub async fn start(bot: Bot, msg: Message, state: Arc<RwLock<BotState>>) -> HandlerResult {
     let mut state = state.write().await;
@@ -75,7 +20,7 @@ pub async fn start(bot: Bot, msg: Message, state: Arc<RwLock<BotState>>) -> Hand
     bot.set_my_commands(vec![
         BotCommand::new("first", "first page"),
         BotCommand::new("last", "last available page"),
-        BotCommand::new("help", "shows available commands"),
+        BotCommand::new("help", "available commands"),
     ])
     .await?;
 
@@ -101,7 +46,7 @@ async fn no_page(bot: Bot, id: ChatId, no_str: &str) -> HandlerResult {
 pub async fn first(bot: Bot, msg: Message, state: Arc<RwLock<BotState>>) -> HandlerResult {
     match state.read().await.pages.first() {
         None => no_page(bot, msg.chat.id, ":( no first page").await?,
-        Some(p) => send_page(false, bot, msg.chat.id, p).await?,
+        Some(p) => bot.send_page(PageToSend::old_page(p), msg.chat.id).await?,
     };
     Ok(())
 }
@@ -109,7 +54,7 @@ pub async fn first(bot: Bot, msg: Message, state: Arc<RwLock<BotState>>) -> Hand
 pub async fn last(bot: Bot, msg: Message, state: Arc<RwLock<BotState>>) -> HandlerResult {
     match state.read().await.pages.last() {
         None => no_page(bot, msg.chat.id, ":( no last page").await?,
-        Some(p) => send_page(false, bot, msg.chat.id, p).await?,
+        Some(p) => bot.send_page(PageToSend::old_page(p), msg.chat.id).await?,
     };
     Ok(())
 }
@@ -122,7 +67,7 @@ async fn by_idx_internal(
 ) -> HandlerResult {
     match state.read().await.pages.by_idx(idx) {
         None => no_page(bot, id, format!(":( no page at idx {}", idx).as_str()).await?,
-        Some(p) => send_page(false, bot, id, p).await?,
+        Some(p) => bot.send_page(PageToSend::old_page(p), id).await?,
     };
     Ok(())
 }
