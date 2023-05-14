@@ -1060,6 +1060,7 @@ dependencies = [
  "serde",
  "teloxide",
  "tokio",
+ "tokio-stream",
 ]
 
 [[package]]

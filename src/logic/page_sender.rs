@@ -1,19 +1,18 @@
+use crate::domain::page_to_send::PageToSend;
 use async_trait::async_trait;
 use teloxide::prelude::*;
 use teloxide::types::{InlineKeyboardButton, InlineKeyboardMarkup, InputFile};
 use teloxide::Bot;
-
-use crate::domain::page_to_send::PageToSend;
 use crate::logic::HandlerResult;
 
 #[async_trait]
 pub trait PageSender {
-    async fn send_page(self, p: PageToSend, to: ChatId) -> HandlerResult;
+    async fn send_page(&self, p: PageToSend, to: ChatId) -> HandlerResult;
 }
 
 #[async_trait]
 impl PageSender for Bot {
-    async fn send_page(self, p: PageToSend, to: ChatId) -> HandlerResult {
+    async fn send_page(&self, p: PageToSend, to: ChatId) -> HandlerResult {
         if p.is_new {
             self.send_message(to, "🎉🎉🎉 GREAT NEWS!! NEW PAGE IS ON THE WAY 🎉🎉🎉")
                 .await?;

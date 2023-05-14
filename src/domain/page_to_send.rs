@@ -11,7 +11,7 @@ pub struct PageToSend {
 }
 
 impl PageToSend {
-    fn new(p: &KsbdPage, is_new: bool) -> PageToSend {
+    fn new(p: KsbdPage, is_new: bool) -> PageToSend {
         PageToSend {
             idx: p.idx,
             title: p.title.clone(),
@@ -22,11 +22,11 @@ impl PageToSend {
         }
     }
 
-    pub fn fresh_page(p: &KsbdPage) -> PageToSend {
+    pub fn fresh_page(p: KsbdPage) -> PageToSend {
         PageToSend::new(p, true)
     }
 
-    pub fn old_page(p: &KsbdPage) -> PageToSend {
+    pub fn old_page(p: KsbdPage) -> PageToSend {
         PageToSend::new(p, false)
     }
 
