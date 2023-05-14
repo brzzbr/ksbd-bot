@@ -11,8 +11,8 @@ The bot is deployed to my Raspberry PI.
 
 ## Why
 
-This is my first attempt to write code in Rust. The idea was to make it work as fast as possible and then improve along
-with learning process.
+This is my first attempt to write code in Rust. The idea was to make it work as soon as possible and then improve the
+code along with a learning process.
 
 And let's be honest, this code is still ugly AF :)
 
@@ -20,9 +20,11 @@ I'm still a bit frustrated with some ideas in language and/or libraries.
 
 Questions and topics to my future self to cover along the way I learn Rust:
 
+- Traits. Make yourself familiar with them and how they allow you to write polymorphic code.
+
 - Unit tests. Just write them.
 
-- Passing callback functions. How? That would be an easiest way to inject dependencies. And will make a code really
+- Passing callback functions. How? That would be the easiest way to inject dependencies. And will make a code really
   testable. Haven't found an easy way to do that.
 
 - For instance, teloxide's way to make so-called "dependency injection" using that `dptree` lib makes me almost cry! If

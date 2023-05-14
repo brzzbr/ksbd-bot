@@ -10,6 +10,14 @@ readonly TARGET_PATH=/home/pi/ksbd-bot-runner
 readonly TARGET_ARCH=armv7-unknown-linux-musleabihf
 readonly SOURCE_PATH=./target/${TARGET_ARCH}/release/ksbd-bot-runner
 
+open /Applications/Docker.app
+while (! docker stats --no-stream); do
+  echo "Waiting for Docker to launch..."
+  sleep 10
+done
+
 cross build --release --target=${TARGET_ARCH}
 rsync ${SOURCE_PATH} ${TARGET_HOST}:${TARGET_PATH}
 ssh -t ${TARGET_HOST} sudo systemctl restart ksbd-bot.service
+
+killall Docker
