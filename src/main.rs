@@ -15,8 +15,10 @@ use crate::logic::bot_flow::*;
 use crate::logic::bot_state::BotStateManager;
 use crate::logic::bot_state::{BotStateManagerImpl, BotStateManagerInit};
 use crate::logic::page_sender::PageSender;
+use crate::logic::pages_state::PagesStateManagerImpl;
 use crate::logic::scraper::KsbdScraper;
 use crate::logic::scraper::KsbdScraperImpl;
+use crate::logic::subs_state::SubsStateManagerImpl;
 
 mod cfg;
 mod domain;
@@ -31,8 +33,11 @@ async fn main() {
     fs::create_dir_all(DATA_PATH.as_str()).await.unwrap();
 
     let scraper = KsbdScraperImpl {};
+    let pages_state_manager = PagesStateManagerImpl {};
+    let subs_state_manager = SubsStateManagerImpl {};
 
-    let bot_state_manager = BotStateManagerImpl::init(&scraper).await;
+    let bot_state_manager =
+        BotStateManagerImpl::init(&scraper, pages_state_manager, subs_state_manager).await;
     let bot = Bot::from_env();
 
     log::info!("starting new pages watcher...");

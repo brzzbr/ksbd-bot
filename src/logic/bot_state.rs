@@ -1,4 +1,3 @@
-use std::pin::Pin;
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -8,9 +7,18 @@ use tokio::sync::RwLock;
 
 use crate::domain::bot_state::BotState;
 use crate::domain::ksbd_page::KsbdPage;
-use crate::logic::pages_state::{PagesStateManager, PagesStateManagerImpl};
+use crate::logic::pages_state::PagesStateManager;
 use crate::logic::scraper::KsbdScraper;
-use crate::logic::subs_state::{SubsStateManager, SubsStateManagerImpl};
+use crate::logic::subs_state::SubsStateManager;
+
+#[async_trait]
+pub trait BotStateManagerInit {
+    async fn init(
+        scraper: &(impl KsbdScraper + Send + Sync),
+        pages_state_manager: impl PagesStateManager + Clone + Send + Sync + 'static,
+        subs_state_manager: impl SubsStateManager + Clone + Send + Sync + 'static,
+    ) -> Self;
+}
 
 #[async_trait]
 pub trait BotStateManager {
@@ -25,33 +33,28 @@ pub trait BotStateManager {
     async fn by_idx(&self, idx: usize) -> Option<KsbdPage>;
 }
 
-#[async_trait]
-pub trait BotStateManagerInit {
-    async fn init(
-        scraper: &(impl KsbdScraper + Send + Sync),
-        // pages_state_manager: &impl PagesStateManager,
-        // subs_state_manager: &impl SubsStateManager,
-    ) -> Self;
+pub struct BotStateManagerImpl {
+    inner_state: Arc<RwLock<BotState>>,
+    pages_state_manager: Arc<dyn PagesStateManager + Send + Sync>,
+    subs_state_manager: Arc<dyn SubsStateManager + Send + Sync>,
 }
 
 #[async_trait]
 impl BotStateManagerInit for BotStateManagerImpl {
     async fn init(
         scraper: &(impl KsbdScraper + Send + Sync),
-        // pages_state_manager: &impl PagesStateManager,
-        // subs_state_manager: &impl SubsStateManager,
+        pages_state_manager: impl PagesStateManager + Clone + Send + Sync + 'static,
+        subs_state_manager: impl SubsStateManager + Clone + Send + Sync + 'static,
     ) -> Self {
-        let pages_state_manager = PagesStateManagerImpl {};
-        let subs_state_manager = SubsStateManagerImpl {};
-
-        let pages_state = pages_state_manager.load_pages_state().await;
+        let pages_state = pages_state_manager.clone().load_pages_state().await;
         if let Some((idx, url)) = pages_state.start_from() {
             log::info!("restoring full state, from {}", idx);
+            let pages_manager_cloned = &pages_state_manager.clone();
             scraper
                 .pages_from(idx, url)
                 .fold(pages_state.clone(), move |mut state, page| async move {
                     state.add_page(page);
-                    pages_state_manager.save_pages_state(&state).await;
+                    pages_manager_cloned.save_pages_state(&state).await;
                     state
                 })
                 .await;
@@ -65,33 +68,23 @@ impl BotStateManagerInit for BotStateManagerImpl {
             subscribers: subs_state,
         }));
 
-        let p_manager = Box::pin(pages_state_manager);
-        let s_manager = Box::pin(subs_state_manager);
+        let pages_state_manager = Arc::new(pages_state_manager.clone());
+        let subs_state_manager = Arc::new(subs_state_manager.clone());
 
         BotStateManagerImpl {
             inner_state,
-            pages_state_manager: p_manager,
-            subs_state_manager: s_manager,
+            pages_state_manager,
+            subs_state_manager,
         }
     }
 }
 
-pub struct BotStateManagerImpl {
-    inner_state: Arc<RwLock<BotState>>,
-    pages_state_manager: Pin<Box<dyn PagesStateManager + Send + Sync>>,
-    subs_state_manager: Pin<Box<dyn SubsStateManager + Send + Sync>>,
-}
-
 impl Clone for BotStateManagerImpl {
     fn clone(&self) -> Self {
-        // screw it too
-        let p_manager = Box::pin(PagesStateManagerImpl {});
-        let s_manager = Box::pin(SubsStateManagerImpl {});
-
         BotStateManagerImpl {
             inner_state: self.inner_state.clone(),
-            pages_state_manager: p_manager,
-            subs_state_manager: s_manager,
+            pages_state_manager: self.pages_state_manager.clone(),
+            subs_state_manager: self.subs_state_manager.clone(),
         }
     }
 }
