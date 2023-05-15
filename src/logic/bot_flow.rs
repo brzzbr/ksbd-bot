@@ -11,9 +11,9 @@ use crate::logic::page_sender::*;
 use crate::logic::HandlerResult;
 
 pub async fn start(
+    state: Arc<dyn BotStateManager + Send + Sync>,
     bot: Bot,
     msg: Message,
-    state: Arc<dyn BotStateManager + Send + Sync>,
 ) -> HandlerResult {
     state.add_subs(msg.chat.id).await;
 
@@ -44,9 +44,9 @@ async fn no_page(bot: Bot, id: ChatId, no_str: &str) -> HandlerResult {
 }
 
 pub async fn first(
+    state: Arc<dyn BotStateManager + Send + Sync>,
     bot: Bot,
     msg: Message,
-    state: Arc<impl BotStateManager + Send + Sync + ?Sized>,
 ) -> HandlerResult {
     match state.first().await {
         None => no_page(bot, msg.chat.id, ":( no first page").await?,
@@ -56,9 +56,9 @@ pub async fn first(
 }
 
 pub async fn last(
+    state: Arc<dyn BotStateManager + Send + Sync>,
     bot: Bot,
     msg: Message,
-    state: Arc<impl BotStateManager + Send + Sync + ?Sized>,
 ) -> HandlerResult {
     match state.last().await {
         None => no_page(bot, msg.chat.id, ":( no last page").await?,
@@ -68,10 +68,10 @@ pub async fn last(
 }
 
 async fn by_idx_internal(
+    state: Arc<dyn BotStateManager + Send + Sync>,
     bot: Bot,
     id: ChatId,
     idx: usize,
-    state: Arc<impl BotStateManager + Send + Sync + ?Sized>,
 ) -> HandlerResult {
     match state.by_idx(idx).await {
         None => no_page(bot, id, format!(":( no page at idx {}", idx).as_str()).await?,
@@ -81,22 +81,22 @@ async fn by_idx_internal(
 }
 
 pub async fn by_idx(
+    state: Arc<dyn BotStateManager + Send + Sync>,
     bot: Bot,
     msg: Message,
     idx: usize,
-    state: Arc<impl BotStateManager + Send + Sync + ?Sized>,
 ) -> HandlerResult {
-    by_idx_internal(bot, msg.chat.id, idx, state).await
+    by_idx_internal(state, bot, msg.chat.id, idx).await
 }
 
 pub async fn nav_callback(
+    state: Arc<dyn BotStateManager + Send + Sync>,
     bot: Bot,
     q: CallbackQuery,
-    state: Arc<impl BotStateManager + Send + Sync + ?Sized>,
 ) -> HandlerResult {
     if let Some(cmd) = &q.data {
         let idx = cmd.as_str().parse::<usize>().unwrap();
-        by_idx_internal(bot, q.message.unwrap().chat.id, idx, state).await?;
+        by_idx_internal(state, bot, q.message.unwrap().chat.id, idx).await?;
     }
 
     Ok(())

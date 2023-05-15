@@ -52,7 +52,8 @@ async fn main() {
 
     Dispatcher::builder(bot, schema())
         .dependencies(dptree::deps![
-            Arc::new(bot_state_manager),
+            // need to cast, otherwise dptree is unable to find manager dependency
+            Arc::new(bot_state_manager) as Arc<dyn BotStateManager + Send + Sync>,
             InMemStorage::<()>::new()
         ])
         .enable_ctrlc_handler()
@@ -66,25 +67,16 @@ async fn main() {
 fn schema() -> UpdateHandler<Box<dyn std::error::Error + Send + Sync + 'static>> {
     use dptree::case;
 
-    // this bloody disaster with Arc<impl BotStateManager + this + that + and + also ++++ that guy>
-    // is needed due to this -- https://github.com/teloxide/dptree#troubleshooting
-    // yep, all the arguments passed via dptree has to whether implement Clone trait or be wrapped
-    // in automatic references counter,
-    type ArcManager = Arc<dyn BotStateManager + Send + Sync>;
-
     let command_handler = teloxide::filter_command::<Command, _>()
-        .branch(case![Command::Start].endpoint::<_, (Bot, Message, ArcManager)>(start))
+        .branch(case![Command::Start].endpoint(start))
         .branch(case![Command::Help].endpoint(help))
-        .branch(case![Command::First].endpoint::<_, (Bot, Message, ArcManager)>(first))
-        .branch(case![Command::Last].endpoint::<_, (Bot, Message, ArcManager)>(last))
-        .branch(
-            case![Command::ByIdx { idx }].endpoint::<_, (Bot, Message, usize, ArcManager)>(by_idx),
-        );
+        .branch(case![Command::First].endpoint(first))
+        .branch(case![Command::Last].endpoint(last))
+        .branch(case![Command::ByIdx { idx }].endpoint(by_idx));
 
     let message_handler = Update::filter_message().branch(command_handler);
 
-    let callback_query_handler = Update::filter_callback_query()
-        .endpoint::<_, (Bot, CallbackQuery, ArcManager)>(nav_callback);
+    let callback_query_handler = Update::filter_callback_query().endpoint(nav_callback);
 
     dialogue::enter::<Update, InMemStorage<()>, (), _>()
         .branch(message_handler)
