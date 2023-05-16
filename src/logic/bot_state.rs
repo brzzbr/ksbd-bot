@@ -14,7 +14,7 @@ use crate::logic::subs_state::SubsStateManager;
 #[async_trait]
 pub trait BotStateManagerInit {
     async fn init(
-        scraper: &(impl KsbdScraper + Send + Sync),
+        scraper: impl KsbdScraper + Send + Sync + 'static,
         pages_state_manager: impl PagesStateManager + Clone + Send + Sync + 'static,
         subs_state_manager: impl SubsStateManager + Clone + Send + Sync + 'static,
     ) -> Self;
@@ -31,8 +31,10 @@ pub trait BotStateManager {
     async fn first(&self) -> Option<KsbdPage>;
     async fn last(&self) -> Option<KsbdPage>;
     async fn by_idx(&self, idx: usize) -> Option<KsbdPage>;
+    async fn last_idx(&self) -> Option<usize>;
 }
 
+#[derive(Clone)]
 pub struct BotStateManagerImpl {
     inner_state: Arc<RwLock<BotState>>,
     pages_state_manager: Arc<dyn PagesStateManager + Send + Sync>,
@@ -42,7 +44,7 @@ pub struct BotStateManagerImpl {
 #[async_trait]
 impl BotStateManagerInit for BotStateManagerImpl {
     async fn init(
-        scraper: &(impl KsbdScraper + Send + Sync),
+        scraper: impl KsbdScraper + Send + Sync + 'static,
         pages_state_manager: impl PagesStateManager + Clone + Send + Sync + 'static,
         subs_state_manager: impl SubsStateManager + Clone + Send + Sync + 'static,
     ) -> Self {
@@ -75,16 +77,6 @@ impl BotStateManagerInit for BotStateManagerImpl {
             inner_state,
             pages_state_manager,
             subs_state_manager,
-        }
-    }
-}
-
-impl Clone for BotStateManagerImpl {
-    fn clone(&self) -> Self {
-        BotStateManagerImpl {
-            inner_state: self.inner_state.clone(),
-            pages_state_manager: self.pages_state_manager.clone(),
-            subs_state_manager: self.subs_state_manager.clone(),
         }
     }
 }
@@ -128,5 +120,10 @@ impl BotStateManager for BotStateManagerImpl {
     async fn by_idx(&self, idx: usize) -> Option<KsbdPage> {
         let state = self.inner_state.read().await;
         state.pages.by_idx(idx).cloned()
+    }
+
+    async fn last_idx(&self) -> Option<usize> {
+        let state = self.inner_state.read().await;
+        state.pages.last().map(|l| l.idx)
     }
 }

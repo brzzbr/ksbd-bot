@@ -32,23 +32,27 @@ async fn main() {
     log::info!("reading cfg, loading state, doing initialization mumbo-jumbo...");
     fs::create_dir_all(DATA_PATH.as_str()).await.unwrap();
 
-    let scraper = KsbdScraperImpl {};
-    let pages_state_manager = PagesStateManagerImpl {};
-    let subs_state_manager = SubsStateManagerImpl {};
-
-    let bot_state_manager =
-        BotStateManagerImpl::init(&scraper, pages_state_manager, subs_state_manager).await;
-    let bot = Bot::from_env();
+    let bot_state_manager = BotStateManagerImpl::init(
+        KsbdScraperImpl {},
+        PagesStateManagerImpl {},
+        SubsStateManagerImpl {},
+    )
+    .await;
 
     log::info!("starting new pages watcher...");
+    let bot = Bot::from_env();
     let bot_for_updater = bot.clone();
     let bot_state_manager_for_updater = bot_state_manager.clone();
     tokio::spawn(async move {
         let delay = time::Duration::from_secs(300);
         log::info!("gonna request for a new page(s)...");
         loop {
-            check_new_page_and_send(&bot_state_manager_for_updater, &bot_for_updater, &scraper)
-                .await;
+            check_new_page_and_send(
+                &bot_state_manager_for_updater,
+                &bot_for_updater,
+                &KsbdScraperImpl {},
+            )
+            .await;
             tokio::time::sleep(delay).await
         }
     });
@@ -108,7 +112,7 @@ async fn check_new_page_and_send(
 
                         for chat_id in state.subs_chat_ids().await {
                             for p in new_pages.clone() {
-                                let _ = sender.send_page(PageToSend::fresh_page(p), chat_id).await;
+                                let _ = sender.send_full_page(PageToSend::fresh_page(p), chat_id).await;
                             }
                         }
 

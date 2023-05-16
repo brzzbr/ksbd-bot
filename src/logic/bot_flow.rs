@@ -1,4 +1,5 @@
 use std::sync::Arc;
+
 use teloxide::prelude::*;
 use teloxide::types::{BotCommand, MenuButton};
 use teloxide::utils::command::BotCommands;
@@ -50,7 +51,10 @@ pub async fn first(
 ) -> HandlerResult {
     match state.first().await {
         None => no_page(bot, msg.chat.id, ":( no first page").await?,
-        Some(p) => bot.send_page(PageToSend::old_page(p), msg.chat.id).await?,
+        Some(p) => {
+            bot.send_full_page(PageToSend::old_page(p), msg.chat.id)
+                .await?
+        }
     };
     Ok(())
 }
@@ -62,7 +66,10 @@ pub async fn last(
 ) -> HandlerResult {
     match state.last().await {
         None => no_page(bot, msg.chat.id, ":( no last page").await?,
-        Some(p) => bot.send_page(PageToSend::old_page(p), msg.chat.id).await?,
+        Some(p) => {
+            bot.send_full_page(PageToSend::old_page(p), msg.chat.id)
+                .await?
+        }
     };
     Ok(())
 }
@@ -75,7 +82,7 @@ async fn by_idx_internal(
 ) -> HandlerResult {
     match state.by_idx(idx).await {
         None => no_page(bot, id, format!(":( no page at idx {}", idx).as_str()).await?,
-        Some(p) => bot.send_page(PageToSend::old_page(p), id).await?,
+        Some(p) => bot.send_full_page(PageToSend::old_page(p), id).await?,
     };
     Ok(())
 }
@@ -95,8 +102,16 @@ pub async fn nav_callback(
     q: CallbackQuery,
 ) -> HandlerResult {
     if let Some(cmd) = &q.data {
-        let idx = cmd.as_str().parse::<usize>().unwrap();
-        by_idx_internal(state, bot, q.message.unwrap().chat.id, idx).await?;
+        let maybe_cmd_and_idx = cmd
+            .split_once('-')
+            .map(|(cmd, idx_str)| (cmd, idx_str.parse::<usize>().unwrap()));
+
+        let chat_id = q.message.unwrap().chat.id;
+
+        match maybe_cmd_and_idx {
+            Some(("n", idx)) => by_idx_internal(state, bot, chat_id, idx).await?,
+            _ => log::warn!("unexpected callback {}", cmd),
+        }
     }
 
     Ok(())
