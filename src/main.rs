@@ -56,7 +56,6 @@ async fn main() {
             tokio::time::sleep(delay).await
         }
     });
-
     log::info!("ksbd bot started...");
 
     Dispatcher::builder(bot, schema())
@@ -112,7 +111,9 @@ async fn check_new_page_and_send(
 
                         for chat_id in state.subs_chat_ids().await {
                             for p in new_pages.clone() {
-                                let _ = sender.send_full_page(PageToSend::fresh_page(p), chat_id).await;
+                                let _ = sender
+                                    .send_full_page(PageToSend::fresh_page(p), chat_id)
+                                    .await;
                             }
                         }
 

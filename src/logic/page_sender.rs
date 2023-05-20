@@ -15,6 +15,8 @@ pub trait PageSender {
 #[async_trait]
 impl PageSender for Bot {
     async fn send_full_page(&self, p: PageToSend, to: ChatId) -> HandlerResult {
+        log::info!("page {} requested by {}", p.idx, to);
+
         if p.is_new {
             self.send_message(to, "🎉🎉🎉 GREAT NEWS!! NEW PAGE IS ON THE WAY 🎉🎉🎉")
                 .await?;

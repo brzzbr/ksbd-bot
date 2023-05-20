@@ -2,7 +2,7 @@ use std::pin::Pin;
 use std::time::Instant;
 
 use async_trait::async_trait;
-use futures::future::join_all;
+use futures::future::{join_all, OptionFuture};
 use futures::TryFutureExt;
 use futures::{stream, Stream};
 use lazy_static::lazy_static;
@@ -22,7 +22,11 @@ lazy_static! {
 pub trait KsbdScraper {
     async fn request_page(&self, idx: usize, url: &str) -> Result<KsbdPage, GetPageError>;
     async fn download_imgs(&self, page: &KsbdPage) -> Result<(), GetPageError>;
-    fn pages_from(&self, idx: usize, url: String) -> Pin<Box<dyn Stream<Item = KsbdPage> + Send +'_>>;
+    fn pages_from(
+        &self,
+        idx: usize,
+        url: String,
+    ) -> Pin<Box<dyn Stream<Item = KsbdPage> + Send + '_>>;
 }
 
 #[derive(Clone)]
@@ -51,8 +55,8 @@ impl KsbdScraper for KsbdScraperImpl {
 
         let title = maybe_title
             .unwrap_or("NO TITLE")
-            .replace("\t", "%09")
-            .replace("\n", "%0D%0A");
+            .replace('\t', "%09")
+            .replace('\n', "%0D%0A");
 
         let img_urls = maybe_img_urls
             .into_iter()
@@ -62,12 +66,9 @@ impl KsbdScraper for KsbdScraperImpl {
 
         let text = document
             .select(&SELECTOR_ENTRY)
-            .map(|e| {
+            .flat_map(|e| {
                 e.text()
-                    .next()
-                    .unwrap_or("")
-                    .replace("\t", "%09")
-                    .replace("\n", "%0D%0A")
+                    .map(|t| t.replace('\t', "%09").replace('\n', "%0D%0A"))
             })
             .collect::<Vec<_>>()
             .join("%0D%0A%0D%0A");
@@ -79,7 +80,7 @@ impl KsbdScraper for KsbdScraperImpl {
 
         Ok(KsbdPage {
             idx,
-            title: title.to_string(),
+            title,
             url: url.to_string(),
             imgs: img_urls,
             next: next_url.map(|u| u.to_string()),
@@ -116,18 +117,16 @@ impl KsbdScraper for KsbdScraperImpl {
         idx: usize,
         url: String,
     ) -> Pin<Box<dyn Stream<Item = KsbdPage> + Send + '_>> {
-        async fn get_page(
-            me_myself_and_i: &KsbdScraperImpl,
-            idx: usize,
-            maybe_url: Option<String>,
-        ) -> Option<(KsbdPage, (usize, Option<String>))> {
-            if let Some(url) = maybe_url {
+        let res_stream = stream::unfold((idx, Some(url)), move |(idx, maybe_url)| async move {
+            // ok. so no monad-transformers, no HKTs. hence done in two steps
+            // Option<Future<_>> -> Future<Option<_>>
+            let maybe_element = maybe_url.map(|url| async move {
                 let start = Instant::now();
-                let page = me_myself_and_i.request_page(idx, &url).await.unwrap();
+                let page = self.request_page(idx, &url).await.unwrap();
                 let next = page.next.clone();
                 // it's side-effecting here downloading the page. but I don't care atm.
                 // highly likely should decouple it in a future... haha
-                me_myself_and_i.download_imgs(&page).await.unwrap();
+                let _ = &self.download_imgs(&page).await.unwrap();
                 let duration = start.elapsed();
 
                 log::info!(
@@ -137,14 +136,10 @@ impl KsbdScraper for KsbdScraperImpl {
                     duration.as_millis()
                 );
 
-                Some((page, (idx + 1, next)))
-            } else {
-                None
-            }
-        }
+                (page, (idx + 1, next))
+            });
 
-        let res_stream = stream::unfold((idx, Some(url)), |(idx, maybe_url)| {
-            get_page(self, idx, maybe_url)
+            OptionFuture::from(maybe_element).await
         });
 
         Box::pin(res_stream)

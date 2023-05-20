@@ -25,6 +25,12 @@ pub async fn start(
     ])
     .await?;
 
+    log::info!(
+        "new user subscribed: [{}, {:?}]",
+        msg.chat.id,
+        msg.chat.username()
+    );
+
     bot.set_chat_menu_button()
         .chat_id(msg.chat.id)
         .menu_button(MenuButton::Commands)
