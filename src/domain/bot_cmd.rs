@@ -14,6 +14,6 @@ pub enum Command {
     First,
     #[command(description = "gets last page.")]
     Last,
-    #[command(description = "gets page by index.")]
-    ByIdx { idx: usize },
+    #[command(description = "shows jump-to menu.")]
+    Jump,
 }

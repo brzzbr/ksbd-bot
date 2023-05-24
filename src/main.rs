@@ -80,7 +80,7 @@ fn schema() -> UpdateHandler<Box<dyn std::error::Error + Send + Sync + 'static>>
         .branch(case![Command::Help].endpoint(help))
         .branch(case![Command::First].endpoint(first))
         .branch(case![Command::Last].endpoint(last))
-        .branch(case![Command::ByIdx { idx }].endpoint(by_idx));
+        .branch(case![Command::Jump].endpoint(jump_menu));
 
     let message_handler = Update::filter_message().branch(command_handler);
 

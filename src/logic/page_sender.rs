@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use reqwest::Url;
 use teloxide::prelude::*;
-use teloxide::types::{InlineKeyboardButton, InlineKeyboardMarkup, InputFile};
+use teloxide::types::*;
 use teloxide::Bot;
 
 use crate::domain::page_to_send::PageToSend;
@@ -36,9 +36,8 @@ impl PageSender for Bot {
                     self.send_document(to, InputFile::file(img_file)).await?;
                 }
 
-                let markup = InlineKeyboardMarkup::new(vec![nav_btns(&p)]);
-                self.send_document(to, InputFile::file(last))
-                    .reply_markup(markup)
+                let _ = self.send_document(to, InputFile::file(last))
+                    .reply_markup(InlineKeyboardMarkup::new(vec![nav_btns(&p)]))
                     .await?;
             }
             false => {
