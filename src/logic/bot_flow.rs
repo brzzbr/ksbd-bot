@@ -102,7 +102,7 @@ pub async fn nav_callback(
     if let Some(cmd) = &q.data {
         let maybe_cmd_and_idx = cmd
             .split_once('-')
-            .map(|(cmd, idx_str)| (cmd, idx_str.parse::<usize>().unwrap()));
+            .and_then(|(cmd, idx_str)| idx_str.parse::<usize>().ok().map(|idx| (cmd, idx)));
 
         let chat_id = q.message.unwrap().chat.id;
 

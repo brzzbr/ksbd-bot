@@ -2,8 +2,7 @@ use std::pin::Pin;
 use std::time::Instant;
 
 use async_trait::async_trait;
-use futures::future::{join_all, OptionFuture};
-use futures::TryFutureExt;
+use futures::future::{join_all, TryFutureExt};
 use futures::{stream, Stream};
 use lazy_static::lazy_static;
 use scraper::{Html, Selector};
@@ -118,28 +117,54 @@ impl KsbdScraper for KsbdScraperImpl {
         url: String,
     ) -> Pin<Box<dyn Stream<Item = KsbdPage> + Send + '_>> {
         let res_stream = stream::unfold((idx, Some(url)), move |(idx, maybe_url)| async move {
-            // ok. so no monad-transformers, no HKTs. hence done in two steps
-            // Option<Future<_>> -> Future<Option<_>>
-            let maybe_element = maybe_url.map(|url| async move {
-                let start = Instant::now();
-                let page = self.request_page(idx, &url).await.unwrap();
-                let next = page.next.clone();
-                // it's side-effecting here downloading the page. but I don't care atm.
-                // highly likely should decouple it in a future... haha
-                let _ = &self.download_imgs(&page).await.unwrap();
-                let duration = start.elapsed();
+            // yes. it's ugly AF
+            // but it turns out patter-matching of async monadic option is kinda idiomatic here
+            match maybe_url {
+                None => None,
+                Some(url) => {
+                    let start = Instant::now();
+                    let page_res = self.request_page(idx, &url).await;
+                    match page_res {
+                        Ok(page) => {
+                            let next = page.next.clone();
+                            // it's side-effecting here downloading the page. but I don't care atm.
+                            // highly likely should decouple it in a future... haha
+                            match &self.download_imgs(&page).await {
+                                Ok(_) => {
+                                    let duration = start.elapsed();
 
-                log::info!(
-                    "page got: [idx: {}, url: {}, elapsed: {}ms]",
-                    idx,
-                    url,
-                    duration.as_millis()
-                );
+                                    log::info!(
+                                        "page got: [idx: {}, url: {}, elapsed: {}ms]",
+                                        idx,
+                                        url,
+                                        duration.as_millis()
+                                    );
 
-                (page, (idx + 1, next))
-            });
-
-            OptionFuture::from(maybe_element).await
+                                    Some((page, (idx + 1, next)))
+                                }
+                                Err(err_download) => {
+                                    log::error!(
+                                        "page download img failed: [idx: {}, url: {}, err: {}]",
+                                        idx,
+                                        url,
+                                        err_download
+                                    );
+                                    None
+                                }
+                            }
+                        }
+                        Err(err_page) => {
+                            log::error!(
+                                "page obtain failed: [idx: {}, url: {}, err: {}]",
+                                idx,
+                                url,
+                                err_page
+                            );
+                            None
+                        }
+                    }
+                }
+            }
         });
 
         Box::pin(res_stream)

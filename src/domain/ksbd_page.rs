@@ -14,9 +14,8 @@ impl Display for KsbdPage {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "KSBD Page [idx: {}, title: {}, url: {}, next: {}]",
+            "KSBD Page [idx: {}, url: {}, next: {}]",
             self.idx,
-            self.title,
             self.url,
             self.next.to_owned().unwrap_or("NO YET".to_string())
         )

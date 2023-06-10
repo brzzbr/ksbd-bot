@@ -99,15 +99,20 @@ async fn check_new_page_and_send(
 ) {
     match state.maybe_last().await {
         Some(p) if p.next.is_none() => {
-            log::info!("requesting...");
+            log::info!("requesting new pages from {}...", p.url);
             match scraper.request_page(p.idx, p.url.as_str()).await {
-                Err(e) => log::error!("{}", e),
+                Err(e) => log::error!("error requesting page: {}", e),
                 Ok(p) => {
+                    log::info!("requested ok {}", p);
                     if let Some(new_url) = p.next {
                         let new_pages = scraper
                             .pages_from(p.idx + 1, new_url)
                             .collect::<Vec<_>>()
                             .await;
+
+                        new_pages.iter().for_each(|p| {
+                            log::info!("new page {}", p);
+                        });
 
                         for chat_id in state.subs_chat_ids().await {
                             for p in new_pages.clone() {
